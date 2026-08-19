@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Luma Studio · 3D 灯光渲染</title>
+</head>
+<body>
+  <iframe class="tripo-background" src="/tripo-background.html?source=E%3A%5C%5C%E6%A1%8C%E9%9D%A2%5C%5C%E4%B8%8B%E8%BD%BD%E6%A8%A1%E5%9E%8B%5C%5Ctripo%20%E8%83%8C%E6%99%AF%5C%5Cbackground.html" title="Tripo ??" aria-hidden="true"></iframe>
+  <div id="app-shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark"></span><div><strong>LUMA STUDIO</strong><small>产品展示 · 未命名项目</small></div></div>
+      <div class="top-spacer"></div>
+      <div class="top-actions"><button class="ghost" id="undoButton">↶</button><button class="ghost" id="redoButton">↷</button><span class="saved"><i></i>已保存</span><button class="avatar">S</button></div>
+    </header>
+
+    <main class="workspace" id="workspace">
+      <aside class="scene-sidebar sidebar">
+        <button class="sidebar-collapse left-collapse" id="toggleLeft" title="&#x6298;&#x53e0;&#x573a;&#x666f;&#x680f;">&#x2039;</button>
+        <div class="panel-title"><div><span>SCENE</span><h2>&#x573a;&#x666f;&#x5bf9;&#x8c61;</h2></div></div>
+        <label class="search"><span>&#x2315;</span><input id="sceneSearch" placeholder="&#x641c;&#x7d22;&#x5bf9;&#x8c61;" /></label>
+        <details class="operation-section" open><summary><span class="section-caret">&#x25be;</span><strong>操作</strong></summary><div class="operation-body"><button class="scene-action" id="addLightButton"><span>&#x263c;</span>添加灯光</button><label>帧率<select id="fpsSelect"><option value="24">24 FPS</option><option value="30" selected>30 FPS</option><option value="60">60 FPS</option></select></label><button class="preview-toggle active" id="previewToggle" aria-pressed="true">实时预览开启</button></div></details>
+        <details class="preset-section" id="presetPopover" open><summary><span class="section-caret">&#x25be;</span><strong>&#x706f;&#x5149;&#x9884;&#x8bbe;</strong><span class="preset-count">6</span></summary><div id="presetList"></div><div class="preset-actions"><button id="savePreset" class="new-preset">&#x4fdd;&#x5b58;&#x9884;&#x8bbe;</button><button id="importPreset" class="new-preset">&#x5bfc;&#x5165;</button><button id="exportPreset" class="new-preset">&#x5bfc;&#x51fa;</button><input id="presetFileInput" type="file" accept="application/json,.json" hidden></div></details>
+        <div id="sceneTree" class="scene-tree"></div>
+        <section class="inspector" id="inspector"></section>
+      </aside>
+
+      <section class="stage-shell">
+        <div class="viewport-wrap" id="viewportWrap">
+          <div id="threeRoot"></div>
+          <section class="viewport-controls" aria-label="预览与录制设置">
+            <div class="shortcut-help"><kbd>W</kbd> 移动 <kbd>E</kbd> 旋转</div>
+            <div class="viewport-settings">
+              <label>旋转方式<select id="rotationMode"><option value="single">单圈旋转</option><option value="none">不旋转</option></select></label>
+              <label>画面比例<select id="ratioSelect"><option value="16:9">16:9 横屏</option><option value="9:16">9:16 竖屏</option><option value="4:3">4:3 横屏</option><option value="1:1">1:1 方形</option><option value="free">自由尺寸</option></select></label>
+              <label>渲染时长<div class="range-with-value"><input id="durationInput" type="range" min="4" max="60" value="8" /><output id="durationOutput">8 秒</output></div></label>
+            </div>
+          </section>
+
+          <div class="record-frame" id="recordFrame">
+            <button class="frame-close" id="closeFrame" title="退出录制构图">×</button>
+            <span class="frame-corner tl" data-resize="tl"></span><span class="frame-corner tr" data-resize="tr"></span><span class="frame-corner bl" data-resize="bl"></span><span class="frame-corner br" data-resize="br"></span>
+            <span class="frame-label"><span class="rec-indicator">&bull;</span> REC FRAME &middot; <b id="frameRatioLabel">16:9</b></span> REC FRAME ? <b id="frameRatioLabel">16:9</b></span>
+            <i class="third-line h1"></i><i class="third-line h2"></i><i class="third-line v1"></i><i class="third-line v2"></i>
+          </div>
+
+          <div class="view-gizmo" id="viewGizmo" aria-label="???????">
+            <span class="gizmo-stem stem-x"></span><span class="gizmo-stem stem-y"></span><span class="gizmo-stem stem-z"></span>
+            <button data-view="x" class="axis x positive">X</button><button data-view="-x" class="axis x negative"></button>
+            <button data-view="y" class="axis y positive">Y</button><button data-view="-y" class="axis y negative"></button>
+            <button data-view="z" class="axis z positive">Z</button><button data-view="-z" class="axis z negative"></button>
+            <span class="gizmo-center"></span>
+          </div>
+          <div class="right-view-tools">
+            <button id="toggleGrid" title="&#x663e;&#x793a;&#x7f51;&#x683c;"><span>&#x25a6;</span></button>
+            <button id="resetCamera" title="&#x590d;&#x4f4d;&#x6b63;&#x9762;&#x89c6;&#x89d2;"><span>&#x2302;</span></button>
+          </div>
+
+          <div class="transform-tools floating-tools"><button id="moveTool" class="tool-button active"><kbd>W</kbd>移动</button><button id="rotateTool" class="tool-button"><kbd>E</kbd>旋转</button></div>
+          <div class="display-mode-wrap">
+            <div class="segmented floating-display" id="displayModes"><button data-mode="material" class="active">材质</button><button data-mode="white">白模</button><button data-mode="wire-toggle" class="wire-button">线框</button></div>
+            <div class="wire-settings" id="wireSettings" aria-label="线框设置">
+              <label><span>线框粗细</span><input id="wireWidthInput" type="range" min="0.5" max="4" step="0.1" value="1"></label>
+              <label><span>线框浓淡</span><input id="wireOpacityInput" type="range" min="0.1" max="1" step="0.05" value="0.8"></label>
+            </div>
+          </div>
+          <div class="record-actions viewport-record-actions">
+            <button class="queue-button" id="queueButton">&#x6279;&#x91CF;&#x5F55;&#x5236; <em id="selectedCount">0</em></button>
+            <button class="record-button" id="recordButton"><i></i><span><b>&#x51C6;&#x5907;&#x5F55;&#x5236;</b><small>&#x663E;&#x793A;&#x5E76;&#x8C03;&#x6574;&#x5F55;&#x5236;&#x8303;&#x56F4;</small></span></button>
+          </div>
+          <section class="animation-timeline" aria-label="&#x65CB;&#x8F6C;&#x52A8;&#x753B;&#x9884;&#x89C8;">
+            <div class="timeline-transport">
+              <button id="timelinePlay" class="timeline-play" aria-label="&#x64AD;&#x653E;&#x65CB;&#x8F6C;&#x9884;&#x89C8;" aria-pressed="false">&#9654;</button>
+              <button class="timeline-step" id="timelinePrev" aria-label="&#x4E0A;&#x4E00;&#x5E27;">&#9664;</button>
+              <button class="timeline-step" id="timelineNext" aria-label="&#x4E0B;&#x4E00;&#x5E27;">&#9654;</button>
+              <span id="timelineTime">0 / 240 帧</span><label class="timeline-current-frame">当前帧 <input id="currentFrameInput" type="number" min="0" value="0" inputmode="numeric"></label>
+            </div>
+            <div class="timeline-ruler" id="timelineRuler" aria-hidden="true"></div>
+            <div class="timeline-track">
+              <input id="timelineProgress" type="range" min="0" max="1000" value="0" aria-label="&#x65CB;&#x8F6C;&#x52A8;&#x753B;&#x8FDB;&#x5EA6;" />
+              <i class="timeline-playhead" id="timelinePlayhead"></i>
+            </div>
+            <div class="timeline-range"><span>0</span><span>&#x8D77;&#x59CB;</span><span id="timelineEndFrame">240</span><span>&#x7ED3;&#x675F;</span></div>
+          </section>
+        </div>
+      </section>
+
+      <aside class="assets-sidebar sidebar">
+        <button class="sidebar-collapse right-collapse" id="toggleRight" title="折叠资产栏">›</button>
+        <div class="panel-title"><div><span>ASSETS</span><h2>我的模型资产</h2></div><button class="square-button">•••</button></div>
+        <label class="upload-button"><input id="modelInput" type="file" multiple accept=".glb,.gltf,.obj,.fbx,.bin,.mtl,image/*" /><span>＋</span><div><strong>上传模型</strong><small>GLB、GLTF、OBJ、FBX</small></div></label>
+        <label class="texture-button"><input id="textureInput" type="file" accept="image/*" /><span>&#9638;</span><div><strong>&#37325;&#26032;&#25351;&#23450;&#26448;&#36136;&#36148;&#22270;</strong><small>&#24212;&#29992;&#21040;&#24403;&#21069;&#27169;&#22411;&#30340;&#22522;&#30784;&#39068;&#33394;</small></div></label>
+        <div class="asset-toolbar"><label><input id="selectAllAssets" type="checkbox" /> 已选择 <b id="assetCount">0</b> 项</label><span>⌕　▦</span></div>
+        <div id="assetList" class="asset-list"></div>
+        <section class="queue-card"><div class="queue-title"><strong>渲染队列</strong><span id="queueStatus">等待开始</span></div><div class="progress"><i id="queueProgress"></i></div><div class="queue-meta"><span><b id="queueDone">0</b> / <b id="queueTotal">0</b> 已完成</span><span id="queueEta">选择模型后开始</span></div><div id="downloadList" class="download-list"></div></section>
+      </aside>
+    </main>
+  </div>
+  <div class="popover light-popover" id="lightPopover">
+    <div class="popover-head"><div><span>ADD LIGHT</span><h3>选择灯光类型</h3></div><button id="closeLightMenu">×</button></div>
+    <button class="light-option" data-light-type="spot"><b>◉</b><div><strong>聚光灯</strong><small>控制方向、角度和边缘柔和度</small></div></button>
+    <button class="light-option" data-light-type="point"><b>✦</b><div><strong>点光源</strong><small>从一个位置向四周发光</small></div></button>
+    <button class="light-option" data-light-type="directional"><b>☀</b><div><strong>方向光</strong><small>平行光线，适合整体照明</small></div></button>
+    <button class="light-option" data-light-type="ambient"><b>◌</b><div><strong>环境光</strong><small>均匀调整场景基础亮度</small></div></button>
+  </div>
+  <div class="toast" id="toast"></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
