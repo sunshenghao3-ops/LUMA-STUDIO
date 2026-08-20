@@ -86,6 +86,7 @@ controls.target.set(0, 1.2, 0);
 controls.minDistance = 0.12;
 controls.maxDistance = 80;
 controls.maxPolarAngle = Math.PI - 0.01;
+controls.addEventListener('change',()=>saveCurrentCameraState());
 
 function createTransform(mode, size) {
   const control = new TransformControls(camera, renderer.domElement);
@@ -106,6 +107,12 @@ floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; floor.visible = fal
 const grid = new THREE.GridHelper(80, 80, '#414652', '#292d36');
 grid.material.transparent = true; grid.material.opacity = .18; grid.position.y = .002; grid.visible = false; scene.add(grid);
 const hemisphere = new THREE.HemisphereLight('#8da0c9', '#17120e', .45); scene.add(hemisphere);
+const clayStudioLights=new THREE.Group();
+const clayStudioSky=new THREE.HemisphereLight('#dfe5ee','#353941',.58);
+const clayStudioKey=new THREE.DirectionalLight('#fff8ed',2.2);clayStudioKey.position.set(4.5,6,5);clayStudioKey.target.position.set(0,1,0);
+const clayStudioFill=new THREE.DirectionalLight('#c5d4ee',.16);clayStudioFill.position.set(-4,3,4);clayStudioFill.target.position.set(0,1,0);
+const clayStudioRim=new THREE.DirectionalLight('#e9eef8',.95);clayStudioRim.position.set(-3.5,4,-5);clayStudioRim.target.position.set(0,1,0);
+clayStudioLights.add(clayStudioSky,clayStudioKey,clayStudioKey.target,clayStudioFill,clayStudioFill.target,clayStudioRim,clayStudioRim.target);clayStudioLights.visible=false;scene.add(clayStudioLights);
 
 function groundAxis(length, width, color, rotationY=0) {
   const axis=new THREE.Mesh(new THREE.BoxGeometry(length,.018,width),new THREE.MeshBasicMaterial({color}));
@@ -129,7 +136,7 @@ const state = {
   assets: [], currentAssetId:null, currentModel:null, displayMode:'material', lights:[], selectedObject:null, textureFiles:[],
   recording:null, batchRunning:false, recordStage:'idle', previewPlaying:false, previewProgress:0, previewLastTime:0, activeTool:'move', transformDragging:false, cameraPan:{x:0,y:0}, previewEnabled:true, fps:30,
   presetName:'\u67d4\u5149\u6444\u5f71\u68da', customPresets:JSON.parse(localStorage.getItem('luma-presets') || '[]'),
-  frame:{ x:.5, y:.49, scale:1 }, previewStartTransform:null, wireOverlay:false, wireWidth:1, wireOpacity:.8, previewQuality:null, history:[], redo:[], frames:0, fpsTime:performance.now()
+  frame:{ x:.5, y:.49, scale:1 }, previewStartTransform:null, wireOverlay:false, wireMode:'feature', wireWidth:1, wireOpacity:.8, previewQuality:null, history:[], redo:[], frames:0, fpsTime:performance.now()
 };
 
 function material(color, metalness=.15, roughness=.45) { return new THREE.MeshStandardMaterial({ color, metalness, roughness }); }
@@ -139,7 +146,7 @@ function createChair() { const g=new THREE.Group(),wood=material('#8c5a3d',.05,.
 function createBottle() { const g=new THREE.Group(),glass=new THREE.MeshPhysicalMaterial({color:'#9d86d0',transmission:.5,transparent:true,opacity:.82,roughness:.12,thickness:.5}); g.add(mesh(new THREE.BoxGeometry(1.25,1.7,.62),glass,[0,.85,0])); g.add(mesh(new THREE.CylinderGeometry(.22,.22,.38,24),material('#c7b5df',.4,.22),[0,1.9,0])); g.add(mesh(new THREE.BoxGeometry(.52,.2,.4),material('#bda7d6',.55,.2),[0,2.18,0])); return g; }
 function createLamp() { const g=new THREE.Group(),metal=material('#b49a68',.65,.28); g.add(mesh(new THREE.CylinderGeometry(.72,.9,.12,32),metal,[0,.06,0])); g.add(mesh(new THREE.CylinderGeometry(.06,.08,1.65,16),metal,[0,.92,0])); g.add(mesh(new THREE.CylinderGeometry(.35,.72,.75,32,1,true),material('#d5bd8c',.1,.55),[0,1.9,0])); return g; }
 
-function addAsset(name, object, icon='\u25c8', selected=false) { const asset={id:crypto.randomUUID(),name,object,icon,selected,status:'\u5df2\u5c31\u7eea'}; state.assets.push(asset); renderAssets(); return asset; }
+function addAsset(name, object, icon='\u25c8', selected=false) { const asset={id:crypto.randomUUID(),name,object,icon,selected,status:'\u5df2\u5c31\u7eea',topology:inspectMeshTopology(object),cameraState:null}; state.assets.push(asset); renderAssets(); return asset; }
 addAsset('\u94f6\u8272\u97f3\u7bb1',createSpeaker(),'\u25a3',true); addAsset('\u4f11\u95f2\u5ea7\u6905',createChair(),'\u25b1',true); addAsset('\u9999\u6c34\u74f6',createBottle(),'\u25c8',true); addAsset('\u53f0\u706f',createLamp(),'\u25c8',false);
 function cloneObject(source) { const clone=SkeletonUtils.clone(source); clone.traverse(child=>{if(!child.isMesh)return; child.material=Array.isArray(child.material)?child.material.map(m=>m.clone()):child.material.clone(); child.castShadow=true; child.receiveShadow=true;}); return clone; }
 function rememberMaterials(object) { object.traverse(child=>{if(child.isMesh)child.userData.baseMaterial=Array.isArray(child.material)?child.material.map(m=>m.clone()):child.material.clone();}); }
@@ -153,9 +160,9 @@ function prepareAssetInstance(asset){
   rememberMaterials(object);asset.instance=object;return object;
 }
 function loadAsset(asset) {
-  if(!asset?.object)return;if(asset.imported){state.displayMode='material';syncDisplayModeButtons();}detachTransforms();modelRoot.visible=true;modelRoot.clear();const object=prepareAssetInstance(asset),normalized=new THREE.Box3().setFromObject(object);
+  if(!asset?.object)return;saveCurrentCameraState();if(asset.imported){state.displayMode='material';syncDisplayModeButtons();}detachTransforms();modelRoot.visible=true;modelRoot.clear();const object=prepareAssetInstance(asset),normalized=new THREE.Box3().setFromObject(object);
   modelRoot.position.set(0,-normalized.min.y,0); modelRoot.rotation.set(0,0,0); modelRoot.scale.set(1,1,1); modelRoot.add(object);
-  state.currentModel=object;state.currentAssetId=asset.id;state.selectedObject=null;applyDisplayMode(state.displayMode);detachTransforms();updateContextHelpers();renderAssets();renderSceneTree();renderInspector();resetCameraView();updateSelectionBox();requestAnimationFrame(()=>{asset.preview=renderer.domElement.toDataURL('image/png');renderAssets();});
+  state.currentModel=object;state.currentAssetId=asset.id;state.selectedObject=null;applyDisplayMode(state.displayMode);detachTransforms();updateContextHelpers();renderAssets();renderSceneTree();renderInspector();if(!restoreAssetCameraState(asset))resetCameraView();updateSelectionBox();requestAnimationFrame(()=>{asset.preview=renderer.domElement.toDataURL('image/png');renderAssets();});
 }
 function syncDisplayModeButtons(){
   $$('#displayModes button').forEach(button=>button.classList.toggle('active',button.dataset.mode==='wire-toggle'?state.wireOverlay:button.dataset.mode===state.displayMode));
@@ -189,18 +196,29 @@ function objTopologyLineGeometry(source){
   if(!segments.length)return null;
   const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(segments,3));return geometry;
 }
-function attachObjTopology(object,source){const geometry=objTopologyLineGeometry(source);if(geometry)object.userData.sourceTopologyGeometry=geometry;return object;}
+function inspectMeshTopology(object){let triangleCount=0;object?.traverse(child=>{if(child.isMesh){const geometry=child.geometry,position=geometry?.getAttribute('position');if(position)triangleCount+=Math.floor((geometry.index?.count||position.count)/3);}});return{triangleCount,faceCount:triangleCount,triangles:triangleCount,quads:0,ngons:0,source:'triangulated'};}
+function inspectObjTopology(source){let faceCount=0,triangleCount=0,triangles=0,quads=0,ngons=0;source.split(/\r?\n/).forEach(line=>{const text=line.trim();if(!text.startsWith('f '))return;const vertices=text.slice(2).trim().split(/\s+/).filter(Boolean).length;if(vertices<3)return;faceCount++;triangleCount+=vertices-2;if(vertices===3)triangles++;else if(vertices===4)quads++;else ngons++;});return{faceCount,triangleCount,triangles,quads,ngons,source:'obj'};}
+function topologyLabel(topology){if(!topology)return'未检测拓扑';if(topology.source==='obj')return`真实拓扑：${topology.triangles} 三角 / ${topology.quads} 四边 / ${topology.ngons} 多边`;return`仅含三角网格：${topology.triangleCount.toLocaleString()} 面`; }
+function attachObjTopology(object,source){const geometry=objTopologyLineGeometry(source),topology=inspectObjTopology(source);if(geometry)object.userData.sourceTopologyGeometry=geometry;object.userData.topology=topology;return object;}
 function wireframeMaterial(){return new THREE.LineBasicMaterial({color:'#111318',transparent:true,opacity:state.wireOpacity,linewidth:state.wireWidth,depthTest:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});}
 function addWireframeLines(parent,geometry){const lines=new THREE.LineSegments(geometry,wireframeMaterial());lines.name='Wireframe';lines.renderOrder=2;lines.frustumCulled=false;parent.add(lines);parent.userData.wireframeLines=lines;}
 function removeWireframeLines(object){object?.traverse(child=>{const lines=child.userData.wireframeLines;if(!lines)return;child.remove(lines);lines.geometry.dispose();lines.material.dispose();delete child.userData.wireframeLines;});}
+function currentTopology(){return state.currentModel?.userData.topology||state.assets.find(asset=>asset.id===state.currentAssetId)?.topology;}
 function rebuildWireframe(){
   removeWireframeLines(state.currentModel);wireframeOverlay.visible=false;
   if(!state.currentModel||!state.wireOverlay)return;
+  const topology=currentTopology();
+  if((topology?.triangleCount||0)>200000)return;
   const sourceTopology=state.currentModel.userData.sourceTopologyGeometry;
   if(sourceTopology){addWireframeLines(state.currentModel,sourceTopology.clone());return;}
   state.currentModel.traverse(child=>{if(!child.isMesh)return;const geometry=topologyLineGeometry(child.geometry);if(geometry)addWireframeLines(child,geometry);});
 }
-function applyDisplayMode(mode) { if(mode==='wire-toggle'){state.wireOverlay=!state.wireOverlay;syncDisplayModeButtons();rebuildWireframe();return;} state.displayMode=mode;syncDisplayModeButtons(); if(!state.currentModel)return; state.currentModel.traverse(child=>{if(!child.isMesh)return; child.material=mode==='material'?(Array.isArray(child.userData.baseMaterial)?child.userData.baseMaterial.map(m=>m.clone()):child.userData.baseMaterial.clone()):new THREE.MeshStandardMaterial({color:'#e8e8e5',roughness:.62});});rebuildWireframe(); }
+function removeClayEdges(object){object?.traverse(child=>{const edges=child.userData.clayEdges;if(!edges)return;child.remove(edges);edges.geometry.dispose();edges.material.dispose();delete child.userData.clayEdges;});}
+function addClayEdges(object){object?.traverse(child=>{if(!child.isMesh||child.userData.clayEdges)return;const geometry=new THREE.EdgesGeometry(child.geometry,28);if(!geometry.getAttribute('position')?.count){geometry.dispose();return;}const edges=new THREE.LineSegments(geometry,new THREE.LineBasicMaterial({color:'#4f555c',transparent:true,opacity:.24,depthTest:true,depthWrite:false}));edges.name='ClayEdges';edges.renderOrder=3;edges.scale.setScalar(1.0008);child.add(edges);child.userData.clayEdges=edges;});}
+function createClayMaterial(sourceMaterial){const material=new THREE.MeshStandardMaterial({color:'#aeb4ba',roughness:.86,metalness:0,envMapIntensity:0});if(sourceMaterial){material.normalMap=sourceMaterial.normalMap||null;material.normalScale=sourceMaterial.normalScale?.clone?.().multiplyScalar(1.6)||new THREE.Vector2(1.6,1.6);material.aoMap=sourceMaterial.aoMap||null;material.aoMapIntensity=sourceMaterial.aoMapIntensity??1;material.bumpMap=sourceMaterial.bumpMap||null;material.bumpScale=sourceMaterial.bumpScale??1;material.displacementMap=sourceMaterial.displacementMap||null;material.displacementScale=sourceMaterial.displacementScale??0;material.displacementBias=sourceMaterial.displacementBias??0;material.alphaMap=sourceMaterial.alphaMap||null;material.transparent=sourceMaterial.transparent===true;material.opacity=sourceMaterial.opacity??1;material.side=sourceMaterial.side??THREE.FrontSide;}return material;}
+function clayMaterials(baseMaterial){return Array.isArray(baseMaterial)?baseMaterial.map(createClayMaterial):createClayMaterial(baseMaterial);}
+function setClayStudioLighting(enabled){clayStudioLights.visible=enabled;foundationLight.visible=!enabled;foundationKeyLight.visible=!enabled;foundationRimLight.visible=!enabled;hemisphere.visible=!enabled;state.lights.forEach(({light})=>{if(enabled){light.userData.clayVisible=light.visible;light.visible=false;}else if(light.userData.clayVisible!==undefined){light.visible=light.userData.clayVisible;delete light.userData.clayVisible;}});}
+function applyDisplayMode(mode) { if(mode==='wire-toggle'){const topology=currentTopology();if(!state.wireOverlay&&(topology?.triangleCount||0)>200000){toast('线框未显示',`模型包含 ${(topology.triangleCount||0).toLocaleString()} 个三角面，超过 200,000 面上限`);return;}state.wireOverlay=!state.wireOverlay;syncDisplayModeButtons();rebuildWireframe();return;} state.displayMode=mode;syncDisplayModeButtons(); if(!state.currentModel)return;const whiteMode=mode==='white';setClayStudioLighting(whiteMode);removeClayEdges(state.currentModel);scene.environmentIntensity=whiteMode?0:.7;renderer.toneMappingExposure=whiteMode?1:1.1;state.currentModel.traverse(child=>{if(!child.isMesh)return;child.material=mode==='material'?(Array.isArray(child.userData.baseMaterial)?child.userData.baseMaterial.map(material=>material.clone()):child.userData.baseMaterial.clone()):clayMaterials(child.userData.baseMaterial);});rebuildWireframe(); }
 function cameraFitDistance(box,padding=1.45){const size=box.getSize(new THREE.Vector3()),verticalFov=THREE.MathUtils.degToRad(camera.fov),horizontalFov=2*Math.atan(Math.tan(verticalFov/2)*Math.max(camera.aspect,.01)),fitHeight=size.y/(2*Math.tan(verticalFov/2)),fitWidth=size.x/(2*Math.tan(horizontalFov/2)),depth=Math.max(size.z,.01);return(Math.max(fitHeight,fitWidth)+depth/2)*padding;}
 function restorePreviewTransform(){if(!state.previewStartTransform)return false;modelRoot.position.copy(state.previewStartTransform.position);modelRoot.quaternion.copy(state.previewStartTransform.quaternion);modelRoot.scale.copy(state.previewStartTransform.scale);updateModelBasis();syncOrbitPivotToModel(true);return true;}
 function resetCameraView(){const pivot=modelPivot(),box=modelBounds(),distance=cameraFitDistance(box,2.1),front=new THREE.Vector3(0,0,1).applyQuaternion(modelRoot.quaternion).normalize(),up=new THREE.Vector3(0,1,0).applyQuaternion(modelRoot.quaternion).normalize();clearCameraPan();camera.up.copy(up);controls.target.copy(pivot);camera.position.copy(pivot).addScaledVector(front,distance);camera.lookAt(pivot);camera.near=Math.max(.01,distance/1000);camera.far=Math.max(200,distance*30);camera.updateProjectionMatrix();updateModelBasis();controls.update();}
@@ -336,7 +354,7 @@ function renderPresets(){
 }
 function resourceFileName(url){try{return decodeURIComponent(url).split(/[\\/]/).pop().split(/[?#]/)[0].toLowerCase();}catch{return url.split(/[\\/]/).pop().split(/[?#]/)[0].toLowerCase();}}
 function createResourceManager(files){const manager=new THREE.LoadingManager(),resources=new Map();files.forEach(file=>resources.set(file.name.toLowerCase(),URL.createObjectURL(file)));manager.setURLModifier(url=>resources.get(resourceFileName(url))||url);return manager;}
-function configureImportedObject(object){object.traverse(child=>{if(!child.isMesh)return;child.castShadow=true;child.receiveShadow=true;});return object;}
+function configureImportedObject(object){object.traverse(child=>{if(!child.isMesh)return;child.castShadow=true;child.receiveShadow=true;});object.userData.topology=inspectMeshTopology(object);return object;}
 async function parseModel(file,resourceFiles=[]){
   const extension=file.name.split('.').pop().toLowerCase(),manager=createResourceManager(resourceFiles);
   if(extension==='glb'){const buffer=await file.arrayBuffer();return await new Promise((resolve,reject)=>new GLTFLoader(manager).parse(buffer,'',gltf=>resolve(configureImportedObject(gltf.scene)),reject));}
@@ -357,8 +375,9 @@ async function uploadModels(files){
     renderAssets();
     try{
       placeholder.object=await parseModel(file,state.textureFiles);
+      placeholder.topology=placeholder.object.userData.topology||inspectMeshTopology(placeholder.object);
       placeholder.icon='\u25eb';
-      placeholder.status=(file.size/1024/1024).toFixed(1)+' MB \u00b7 \u5df2\u5c31\u7eea';
+      placeholder.status=(file.size/1024/1024).toFixed(1)+' MB \u00b7 '+topologyLabel(placeholder.topology);
       openAsset(placeholder);
       imported++;
     }catch(error){
@@ -385,7 +404,7 @@ function setPreviewQuality(enabled){
     renderer.setPixelRatio(Math.min(devicePixelRatio,1.35)); renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFShadowMap;
     state.currentModel?.traverse(child=>{if(child.isMesh)child.castShadow=true;});
   }else{
-    foundationLight.intensity=.95; foundationKeyLight.intensity=0; foundationRimLight.intensity=0;
+    foundationLight.intensity=2.2; foundationKeyLight.intensity=0; foundationRimLight.intensity=0;
     renderer.setPixelRatio(Math.min(devicePixelRatio,.72)); renderer.shadowMap.enabled=false;
     state.currentModel?.traverse(child=>{if(child.isMesh)child.castShadow=false;});
   }
@@ -502,7 +521,9 @@ updateTimelineUI();renderTimelineRuler();updateTimelineUI();setupFrameInteractio
 
 function modelBounds(){return new THREE.Box3().setFromObject(modelRoot);}
 function modelCenter(){return modelBounds().getCenter(new THREE.Vector3());}
-function modelPivot(){return modelRoot.getWorldPosition(new THREE.Vector3());}
+function saveCurrentCameraState(){const asset=state.assets.find(item=>item.id===state.currentAssetId);if(!asset||state.recording)return;asset.cameraState={position:camera.position.toArray(),quaternion:camera.quaternion.toArray(),up:camera.up.toArray(),target:controls.target.toArray(),pan:{...state.cameraPan},fov:camera.fov};}
+function restoreAssetCameraState(asset){const saved=asset?.cameraState;if(!saved)return false;camera.position.fromArray(saved.position);camera.quaternion.fromArray(saved.quaternion);camera.up.fromArray(saved.up);camera.fov=saved.fov;controls.target.fromArray(saved.target);state.cameraPan={...saved.pan};camera.updateProjectionMatrix();applyCameraViewOffset();controls.update();return true;}
+function modelPivot(){return state.currentModel?modelCenter():modelRoot.getWorldPosition(new THREE.Vector3());}
 function applyCameraViewOffset(){const width=dom.root.clientWidth,height=dom.root.clientHeight;if(!width||!height)return;const rect=dom.root.getBoundingClientRect(),visibleLeft=Math.max(rect.left,0),visibleRight=Math.min(rect.right,window.innerWidth),viewportCenterOffset=visibleRight>visibleLeft?(visibleLeft+visibleRight-rect.left-rect.right)/2:0,panX=state.cameraPan.x+viewportCenterOffset;if(Math.abs(panX)<.01&&Math.abs(state.cameraPan.y)<.01){camera.clearViewOffset();camera.updateProjectionMatrix();return;}camera.setViewOffset(width,height,-panX,-state.cameraPan.y,width,height);}
 function clearCameraPan(){state.cameraPan.x=0;state.cameraPan.y=0;applyCameraViewOffset();}
 function syncOrbitPivotToModel(preserveView=false){const pivot=modelPivot(),delta=pivot.clone().sub(controls.target);if(preserveView)camera.position.add(delta);controls.target.copy(pivot);controls.update();}
