@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
@@ -19,7 +19,7 @@
         <button class="sidebar-collapse left-collapse" id="toggleLeft" title="&#x6298;&#x53e0;&#x573a;&#x666f;&#x680f;">&#x2039;</button>
         <div class="panel-title"><div><span>SCENE</span><h2>&#x573a;&#x666f;&#x5bf9;&#x8c61;</h2></div></div>
         <label class="search"><span>&#x2315;</span><input id="sceneSearch" placeholder="&#x641c;&#x7d22;&#x5bf9;&#x8c61;" /></label>
-        <details class="operation-section" open><summary><span class="section-caret">&#x25be;</span><strong>操作</strong></summary><div class="operation-body"><button class="scene-action" id="addLightButton"><span>&#x263c;</span>添加灯光</button><label>帧率<select id="fpsSelect"><option value="24">24 FPS</option><option value="30" selected>30 FPS</option><option value="60">60 FPS</option></select></label><button class="preview-toggle active" id="previewToggle" aria-pressed="true">实时预览开启</button></div></details>
+        <button class="scene-action add-light-action" id="addLightButton"><span>&#x263c;</span>添加灯光</button>
         <details class="preset-section" id="presetPopover" open><summary><span class="section-caret">&#x25be;</span><strong>&#x706f;&#x5149;&#x9884;&#x8bbe;</strong><span class="preset-count">6</span></summary><div id="presetList"></div><div class="preset-actions"><button id="savePreset" class="new-preset">&#x4fdd;&#x5b58;&#x9884;&#x8bbe;</button><button id="importPreset" class="new-preset">&#x5bfc;&#x5165;</button><button id="exportPreset" class="new-preset">&#x5bfc;&#x51fa;</button><input id="presetFileInput" type="file" accept="application/json,.json" hidden></div></details>
         <div id="sceneTree" class="scene-tree"></div>
         <section class="inspector" id="inspector"></section>
@@ -29,11 +29,10 @@
         <div class="viewport-wrap" id="viewportWrap">
           <div id="threeRoot"></div>
           <section class="viewport-controls" aria-label="预览与录制设置">
-            <div class="shortcut-help"><kbd>W</kbd> 移动 <kbd>E</kbd> 旋转</div>
             <div class="viewport-settings">
               <label>旋转方式<select id="rotationMode"><option value="single">单圈旋转</option><option value="none">不旋转</option></select></label>
               <label>画面比例<select id="ratioSelect"><option value="16:9">16:9 横屏</option><option value="9:16">9:16 竖屏</option><option value="4:3">4:3 横屏</option><option value="1:1">1:1 方形</option><option value="free">自由尺寸</option></select></label>
-              <label>渲染时长<div class="range-with-value"><input id="durationInput" type="range" min="4" max="60" value="8" /><output id="durationOutput">8 秒</output></div></label>
+              <label>渲染时长<div class="range-with-value"><input id="durationInput" type="range" min="4" max="60" value="8" /><output id="durationOutput">8 秒</output></div></label><label>帧率<select id="fpsSelect"><option value="24">24 FPS</option><option value="30" selected>30 FPS</option><option value="60">60 FPS</option></select></label><button class="preview-toggle active" id="previewToggle" aria-pressed="true">实时预览开启</button>
             </div>
           </section>
 
@@ -90,6 +89,7 @@
         <div class="panel-title"><div><span>ASSETS</span><h2>我的模型资产</h2></div><button class="square-button">•••</button></div>
         <label class="upload-button"><input id="modelInput" type="file" multiple accept=".glb,.gltf,.obj,.fbx,.bin,.mtl,image/*" /><span>＋</span><div><strong>上传模型</strong><small>GLB / GLTF / OBJ / FBX - multiple model files supported</small></div></label>
         <label class="texture-button"><input id="textureInput" type="file" accept="image/*" /><span>&#9638;</span><div><strong>&#37325;&#26032;&#25351;&#23450;&#26448;&#36136;&#36148;&#22270;</strong><small>&#24212;&#29992;&#21040;&#24403;&#21069;&#27169;&#22411;&#30340;&#22522;&#30784;&#39068;&#33394;</small></div></label>
+        <div class="history-folder-control"><button id="historyFolderButton" type="button"><span>⌁</span>选择历史文件夹</button><input id="historyFolderInput" type="file" webkitdirectory directory hidden><small id="historyFolderStatus">未选择保存文件夹</small></div>
         <div class="asset-toolbar"><label><input id="selectAllAssets" type="checkbox" /> 已选择 <b id="assetCount">0</b> 项</label><span>⌕　▦</span></div>
         <div id="assetList" class="asset-list"></div>
         <section class="queue-card"><div class="queue-title"><strong>渲染队列</strong><span id="queueStatus">等待开始</span></div><div class="progress"><i id="queueProgress"></i></div><div class="queue-meta"><span><b id="queueDone">0</b> / <b id="queueTotal">0</b> 已完成</span><span id="queueEta">选择模型后开始</span></div><div id="downloadList" class="download-list"></div></section>

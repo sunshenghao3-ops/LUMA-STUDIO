@@ -166,3 +166,10 @@ html,body{background:radial-gradient(circle,#575A5D 0%,#0E0E10 90%)!important}
 
 /* Preset cards show only name and description. */
 .preset-card .preset-apply{gap:8px}.preset-card .preset-apply .swatch{display:none!important}
+
+.history-folder-control{display:flex;align-items:center;gap:9px;margin:-3px 0 12px}.history-folder-control button{height:36px;padding:0 12px;border:1px solid #414856;border-radius:8px;background:#181c24;color:#dce1ea;font-size:11px;cursor:pointer}.history-folder-control button:hover,.history-folder-control button.selected{border-color:#776bd0;background:#25213d;color:#fff}.history-folder-control button span{margin-right:6px;color:#9c90ff;font-size:15px}.history-folder-control small{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#737c8b;font-size:9px}.download-list span{color:#a69cff;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Left-panel layout refresh: promote lighting and keep render options together. */
+.scene-sidebar .add-light-action{width:100%;margin:0 0 12px;display:flex;align-items:center;justify-content:flex-start;gap:8px}.scene-sidebar .preset-section{margin-top:0}.viewport-settings .preview-toggle{width:100%;margin-top:1px;text-align:left}.viewport-settings select{width:100%;height:34px;margin-top:6px;border:1px solid #363b46;border-radius:7px;background:#1a1e27;color:#b8bec8;padding:0 9px}.viewport-settings .preview-toggle{height:34px;border:1px solid #363b46;border-radius:7px;background:#191d25;color:#c2c8d2;padding:0 11px}.viewport-settings .preview-toggle.active{border-color:#4ea77f;color:#72dfad;background:#14241e}.shortcut-help{display:none!important}
+
+/* The W/E shortcut guidance remains in the viewport settings; remove the duplicate lower-left controls. */
+.transform-tools.floating-tools{display:none!important}
